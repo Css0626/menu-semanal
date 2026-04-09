@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Menú Semanal">
+<title></title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { 
+  background: #1a1a1a; 
+  font-family: Arial, sans-serif; 
+  display: flex; 
+  flex-direction: column; 
+  align-items: center; 
+  padding: 10px; 
+  gap: 12px; 
+  min-height: 100vh;
+}
+h2 { 
+  color: #F5A623; 
+  font-size: 14px; 
+  font-weight: 700; 
+  letter-spacing: 0.1em; 
+  text-transform: uppercase;
+  text-align: center;
+}
+
+/* FORMULARIO EDICION - AHORA RESPONSIVE */
+.form-wrap { 
+  background: #111; 
+  border: 1px solid #333; 
+  border-radius: 12px; 
+  padding: 12px; 
+  width: 100%; 
+  max-width: 540px;  /* No más ancho que el canvas */
+}
+.form-title { 
+  color: #F5A623; 
+  font-size: 11px; 
+  font-weight: 900; 
+  letter-spacing: 0.12em; 
+  text-transform: uppercase; 
+  margin-bottom: 10px;
+  text-align: center;
+}
+.row-form { 
+  display: flex; 
+  align-items: center; 
+  gap: 6px; 
+  margin-bottom: 6px; 
+  flex-wrap: wrap; /* Permite quebrar en pantallas chicas */
+}
+.row-form label { 
+  color: #F5A623; 
+  font-size: 10px; 
+  font-weight: 900; 
+  width: 28px; 
+  text-align: center; 
+}
+.row-form input[type=text] { 
+  flex: 1; 
+  background: #1a1a1a; 
+  border: 1px solid #333; 
+  border-radius: 6px; 
+  color: #fff; 
+  font-size: 11px; 
+  padding: 6px 8px; 
+  outline: none; 
+  min-width: 0; /* Importante para flex */
+}
+.row-form input[type=text]:focus { border-color: #F5A623; }
+.row-form input[type=text].price { 
+  width: 70px; 
+  flex: none; 
+}
+.photo-btn { 
+  background: #222; 
+  border: 1px solid #F5A623; 
+  border-radius: 6px; 
+  color: #F5A623; 
+  font-size: 9px; 
+  font-weight: 700; 
+  padding: 6px 8px; 
+  cursor: pointer; 
+  white-space: nowrap; 
+}
+.photo-btn:hover { background: #2a2000; }
+.file-input { display: none; }
+
+/* CANVAS RESPONSIVE - ESTO ES LO CLAVE */
+.canvas-container {
+  width: 100%;
+  max-width: 540px;
+  display: flex;
+  justify-content: center;
+}
+canvas { 
+  width: 100%;      /* Se adapta al contenedor */
+  height: auto;     /* Mantiene proporción */
+  max-width: 540px; /* No excede tamaño original */
+  border-radius: 8px; 
+  border: 2px solid #F5A623; 
+}
+
+.dl-btn { 
+  background: #F5A623; 
+  color: #111; 
+  border: none; 
+  border-radius: 10px; 
+  font-size: 13px; 
+  font-weight: 900; 
+  padding: 12px 24px; 
+  cursor: pointer; 
+  letter-spacing: 0.06em; 
+  text-transform: uppercase;
+  width: 100%;
+  max-width: 320px;
+}
+.dl-btn:hover { opacity: .85; }
+.status { 
+  color: #666; 
+  font-size: 11px; 
+  min-height: 16px; 
+  text-align: center;
+}
+
+/* MEDIA QUERY PARA PANTALLAS MUY CHICAS */
+@media (max-width: 400px) {
+  body { padding: 8px; }
+  .form-wrap { padding: 10px; }
+  .row-form label { font-size: 9px; width: 24px; }
+  .row-form input[type=text] { font-size: 10px; padding: 5px 6px; }
+  .row-form input[type=text].price { width: 60px; }
+  .photo-btn { font-size: 8px; padding: 5px 6px; }
+  h2 { font-size: 12px; }
+}
+</style>
+</head>
+<body>
+
+<h2></h2>
+
+<div class="form-wrap">
+  <div class="form-title">Completá cada día</div>
+  <div id="formRows"></div>
+</div>
+
+<!-- Contenedor responsive para el canvas -->
+<div class="canvas-container">
+  <canvas id="cv" width="540" height="960"></canvas>
+</div>
+
+<button class="dl-btn" onclick="descargar()">Descargar JPG para WhatsApp</button>
+<div class="status" id="st"></div>
+
+<script>
+// ... (tu JavaScript permanece IGUAL, sin cambios)
+var dias = ['LUN','MAR','MIÉ','JUE','VIE','SÁB','DOM'];
+var state = dias.map(function(d){ return { dia: d, plato: '', precio: '', img: null }; });
+
+// Crear formulario
+var formRows = document.getElementById('formRows');
+dias.forEach(function(d, i) {
+  var div = document.createElement('div');
+  div.className = 'row-form';
+  div.innerHTML =
+    '<label>' + d + '</label>' +
+    '<input type="text" placeholder="Nombre del plato..." oninput="update(' + i + ',\'plato\',this.value)"/>' +
+    '<input type="text" class="price" placeholder="Precio" oninput="update(' + i + ',\'precio\',this.value)"/>' +
+    '<label class="photo-btn" for="file' + i + '">+ F</label>' +
+    '<input class="file-input" type="file" id="file' + i + '" accept="image/*" onchange="loadImg(' + i + ',this)"/>';
+  formRows.appendChild(div);
+});
+
+function update(i, key, val) {
+  state[i][key] = val;
+  draw();
+}
+
+function loadImg(i, input) {
+  var file = input.files[0];
+  if (!file) return;
+  var img = new Image();
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    img.onload = function() { state[i].img = img; draw(); };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+// DIBUJAR EN CANVAS
+var cv = document.getElementById('cv');
+var ctx = cv.getContext('2d');
+var W = 540, H = 960;
+
+// Medidas layout
+var HDR = 80;   // altura header
+var FTR = 32;   // altura footer
+var ROW_H = Math.floor((H - HDR - FTR) / 7); // altura por fila
+var PHOTO_W = 90;
+var TAG_W = 66;
+var INFO_X = PHOTO_W + TAG_W;
+var INFO_W = W - INFO_X;
+
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+
+  // Fondo
+  ctx.fillStyle = '#111111';
+  ctx.fillRect(0, 0, W, H);
+
+  // Borde exterior
+  ctx.strokeStyle = '#F5A623';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(1, 1, W-2, H-2);
+
+  // HEADER
+  ctx.fillStyle = '#111111';
+  ctx.fillRect(0, 0, W, HDR);
+  // línea inferior header
+  ctx.strokeStyle = '#F5A623';
+  ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(0, HDR); ctx.lineTo(W, HDR); ctx.stroke();
+
+  // Punto amarillo
+  ctx.fillStyle = '#F5A623';
+  ctx.beginPath(); ctx.arc(18, 30, 6, 0, Math.PI*2); ctx.fill();
+
+  // Título header
+  ctx.fillStyle = '#FFFFFF';
+  ctx.font = 'bold 22px Arial';
+  ctx.fillText('MENÚ ', 30, 40);
+  var w1 = ctx.measureText('MENÚ ').width;
+  ctx.fillStyle = '#F5A623';
+  ctx.fillText('SEMANAL', 30 + w1, 40);
+
+  // Subtítulo header
+  ctx.fillStyle = '#FFFFFF';
+  ctx.font = '10px Arial';
+  ctx.fillText('SABS.HOME  ·  SEMANAL', 30, 58);
+
+  // Badge "3464 620200"
+  var bw = 100, bh = 22, bx = W - bw - 14, by = 18;
+  ctx.fillStyle = '#F5A623';
+  roundRect(ctx, bx, by, bw, bh, 11);
+  ctx.fill();
+  ctx.fillStyle = '#111111';
+  ctx.font = 'bold 10px Arial';
+  ctx.textAlign = 'center';
+  ctx.fillText('ESTA SEMANA', bx + bw/2, by + 15);
+  ctx.textAlign = 'left';
+
+  // FILAS
+  for (var i = 0; i < 7; i++) {
+    var y = HDR + i * ROW_H;
+    var s = state[i];
+
+    // Fondo fila (alternado suave)
+    ctx.fillStyle = i % 2 === 0 ? '#111111' : '#131313';
+    ctx.fillRect(0, y, W, ROW_H);
+
+    // Separador fila
+    if (i > 0) {
+      ctx.strokeStyle = '#1e1e1e';
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+    }
+
+    // FOTO
+    if (s.img) {
+      // crop centrado
+      var iw = s.img.width, ih = s.img.height;
+      var scale = Math.max(PHOTO_W / iw, ROW_H / ih);
+      var sw = PHOTO_W / scale, sh = ROW_H / scale;
+      var sx = (iw - sw) / 2, sy = (ih - sh) / 2;
+      ctx.save();
+      ctx.beginPath(); ctx.rect(0, y, PHOTO_W, ROW_H); ctx.clip();
+      ctx.drawImage(s.img, sx, sy, sw, sh, 0, y, PHOTO_W, ROW_H);
+      ctx.restore();
+    } else {
+      ctx.fillStyle = '#1a1a1a';
+      ctx.fillRect(0, y, PHOTO_W, ROW_H);
+      // icono cámara
+      ctx.strokeStyle = '#333';
+      ctx.lineWidth = 1.5;
+      var cx2 = PHOTO_W/2, cy2 = y + ROW_H/2;
+      ctx.strokeRect(cx2-12, cy2-8, 24, 16);
+      ctx.beginPath(); ctx.arc(cx2, cy2, 5, 0, Math.PI*2); ctx.stroke();
+      ctx.fillStyle = '#333';
+      ctx.font = '8px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText('foto', cx2, cy2 + ROW_H/2 - 6);
+      ctx.textAlign = 'left';
+    }
+
+    // TAG DÍA — fondo azul oscuro para diferenciar
+    ctx.fillStyle = '#c49027';
+    ctx.fillRect(PHOTO_W, y, TAG_W, ROW_H);
+    // borde izquierdo luminoso
+    ctx.fillStyle = '#cfbf9f';
+    ctx.fillRect(PHOTO_W, y, 2, ROW_H);
+    // borde derecho sutil
+    ctx.fillStyle = '#0a1220';
+    ctx.fillRect(PHOTO_W + TAG_W - 1, y, 1, ROW_H);
+
+    ctx.fillStyle = 'white';
+    ctx.font = 'bold 20px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText(s.dia, PHOTO_W + TAG_W/2, y + ROW_H/2 + 4);
+    ctx.textAlign = 'left';
+
+    // SEPARACIÓN extra: padding izquierdo aumentado
+    var PAD = 20;
+
+    // PRECIO grande a la derecha (calcular primero para reservar espacio)
+    var precio = s.precio ? '$ ' + s.precio : '$ ---';
+    ctx.font = 'bold 26px Arial';
+    var precioW = ctx.measureText(precio).width;
+
+    // NOMBRE PLATO
+    ctx.fillStyle = s.plato ? '#FFFFFF' : '#333333';
+    ctx.font = 'bold 20px Arial';
+    var txt = s.plato || 'Nombre del plato...';
+    var maxTxtW = INFO_W - PAD - precioW - 24;
+    while (ctx.measureText(txt).width > maxTxtW && txt.length > 1) txt = txt.slice(0,-1);
+    ctx.fillText(txt, INFO_X + PAD, y + ROW_H/2 + 6);
+
+    // PRECIO — al lado derecho, grande y naranja
+    ctx.fillStyle = '#F5A623';
+    ctx.font = 'bold 26px Arial';
+    ctx.textAlign = 'right';
+    ctx.fillText(precio, W - 14, y + ROW_H/2 + 8);
+    ctx.textAlign = 'left';
+
+    // línea separadora sutil
+    ctx.strokeStyle = '#252525';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(INFO_X + PAD, y + ROW_H - 1); ctx.lineTo(W - 14, y + ROW_H - 1); ctx.stroke();
+  }
+
+  // FOOTER
+  var fy = H - FTR;
+  ctx.fillStyle = '#111111';
+  ctx.fillRect(0, fy, W, FTR);
+  ctx.strokeStyle = '#1c1c1c';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(0, fy); ctx.lineTo(W, fy); ctx.stroke();
+
+  // líneas footer
+  ctx.fillStyle = '#F5A623';
+  ctx.fillRect(14, fy+14, 24, 2);
+  ctx.fillRect(W-38, fy+14, 24, 2);
+
+  ctx.fillStyle = '#3a3a3a';
+  ctx.font = '8px Arial';
+  ctx.textAlign = 'center';
+  ctx.fillText('CONSULTÁ DISPONIBILIDAD', W/2, fy+18);
+  ctx.textAlign = 'left';
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x+r, y);
+  ctx.lineTo(x+w-r, y);
+  ctx.quadraticCurveTo(x+w, y, x+w, y+r);
+  ctx.lineTo(x+w, y+h-r);
+  ctx.quadraticCurveTo(x+w, y+h, x+w-r, y+h);
+  ctx.lineTo(x+r, y+h);
+  ctx.quadraticCurveTo(x, y+h, x, y+h-r);
+  ctx.lineTo(x, y+r);
+  ctx.quadraticCurveTo(x, y, x+r, y);
+  ctx.closePath();
+}
+
+function descargar() {
+  var st = document.getElementById('st');
+  // Dibujar en canvas 2x para alta resolución
+  var cvHD = document.createElement('canvas');
+  cvHD.width = 1080; cvHD.height = 1920;
+  var c2 = cvHD.getContext('2d');
+  c2.scale(2, 2);
+
+  // copiar estado y redibujar en HD
+  var origCtx = ctx, origCv = cv;
+  ctx = c2; cv = cvHD;
+  W = 540; H = 960;
+  draw();
+  ctx = origCtx; cv = origCv; W = 540; H = 960;
+
+  var a = document.createElement('a');
+  a.download = 'menu-semanal-whatsapp.jpg';
+  a.href = cvHD.toDataURL('image/jpeg', 0.97);
+  a.click();
+  st.textContent = 'Descargado! 1080x1920px listo para WhatsApp.';
+  setTimeout(function(){ st.textContent = ''; }, 4000);
+}
+
+draw();
+</script>
+</body>
+</html>
